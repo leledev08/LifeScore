@@ -85,40 +85,21 @@ function CategoriesSection() {
     updateMutation.mutate({ id, name: editName.trim() });
   }
 
-  const defaults = categories.filter((c) => c.is_default);
-  const custom   = categories.filter((c) => !c.is_default);
-
   return (
     <div className="bg-card border border-border rounded-lg p-5 space-y-5">
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Categories</h2>
 
-      {/* Default categories (read-only names) */}
-      {defaults.length > 0 && (
-        <div>
-          <p className="text-xs text-muted-foreground mb-2">Default (built-in)</p>
-          <div className="space-y-1">
-            {defaults.map((cat) => (
-              <div key={cat.id} className="flex items-center justify-between px-3 py-2 rounded-md bg-muted/50">
-                <span className="text-sm text-foreground">{cat.name}</span>
-                <span className="text-xs text-muted-foreground">default</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Custom categories */}
+      {/* All categories */}
       <div>
-        <p className="text-xs text-muted-foreground mb-2">Custom</p>
         {isLoading ? (
           <div className="space-y-2 animate-pulse">
-            {[1, 2].map((i) => <div key={i} className="h-10 bg-muted rounded" />)}
+            {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted rounded" />)}
           </div>
-        ) : custom.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No custom categories yet.</p>
+        ) : categories.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2">No categories yet.</p>
         ) : (
           <div className="space-y-1">
-            {custom.map((cat) => (
+            {categories.map((cat) => (
               <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50">
                 {editingId === cat.id ? (
                   <>
@@ -139,6 +120,9 @@ function CategoriesSection() {
                 ) : (
                   <>
                     <span className="flex-1 text-sm text-foreground">{cat.name}</span>
+                    {cat.is_default && (
+                      <span className="text-xs text-muted-foreground">default</span>
+                    )}
                     <button
                       onClick={() => startEdit(cat)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"

@@ -88,6 +88,46 @@ export default function Analytics() {
         </div>
       )}
 
+      {/* Radar chart */}
+      <Section title="Daily Snapshot (Radar)">
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => {
+              const d = new Date(radarDate + 'T12:00:00');
+              d.setDate(d.getDate() - 1);
+              setRadarDate(d.toISOString().slice(0, 10));
+            }}
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors text-lg leading-none"
+          >‹</button>
+          <input
+            type="date"
+            value={radarDate}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setRadarDate(e.target.value)}
+            className="px-2 py-1 rounded border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            onClick={() => {
+              const today = new Date().toISOString().slice(0, 10);
+              if (radarDate >= today) return;
+              const d = new Date(radarDate + 'T12:00:00');
+              d.setDate(d.getDate() + 1);
+              setRadarDate(d.toISOString().slice(0, 10));
+            }}
+            disabled={radarDate >= new Date().toISOString().slice(0, 10)}
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors text-lg leading-none disabled:opacity-30"
+          >›</button>
+          <span className="text-xs text-muted-foreground ml-1">
+            {new Date(radarDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+        {radarData.length > 0 ? (
+          <RadarChart data={radarData} />
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-8">No entry for this date.</p>
+        )}
+      </Section>
+
       {/* Overall trend */}
       <Section title="Overall Score Trend">
         {overallLoading ? <ChartSkeleton /> : overall?.trend.length ? (
@@ -97,20 +137,6 @@ export default function Analytics() {
           />
         ) : <Empty />}
       </Section>
-
-      {/* Per-category charts */}
-      {categories.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
-            Category Trends
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {categories.map((cat, i) => (
-              <CategoryChart key={cat.id} categoryId={cat.id} name={cat.name} days={days} color={COLORS[i % COLORS.length]} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Comparison chart */}
       <Section title="Multi-Category Comparison">
@@ -146,24 +172,19 @@ export default function Analytics() {
         )}
       </Section>
 
-      {/* Radar chart */}
-      <Section title="Daily Snapshot (Radar)">
-        <div className="flex items-center gap-3 mb-4">
-          <label className="text-xs text-muted-foreground">Date</label>
-          <input
-            type="date"
-            value={radarDate}
-            max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => setRadarDate(e.target.value)}
-            className="px-2 py-1 rounded border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+      {/* Per-category charts */}
+      {categories.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
+            Category Trends
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {categories.map((cat, i) => (
+              <CategoryChart key={cat.id} categoryId={cat.id} name={cat.name} days={days} color={COLORS[i % COLORS.length]} />
+            ))}
+          </div>
         </div>
-        {radarData.length > 0 ? (
-          <RadarChart data={radarData} />
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-8">No entry for this date.</p>
-        )}
-      </Section>
+      )}
 
       {/* Heatmap */}
       <Section title="Activity Heatmap">
