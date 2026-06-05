@@ -14,22 +14,10 @@ function todayISO() {
 function groupBySection(categories: Category[]) {
   const sections: Record<string, Category[]> = {};
   for (const cat of categories) {
-    const key = getSectionLabel(cat.name);
+    const key = cat.group_name ?? 'Custom';
     (sections[key] ??= []).push(cat);
   }
   return sections;
-}
-
-function getSectionLabel(name: string): string {
-  const health = ['Nutrition', 'Hydration', 'Sleep'];
-  const fitness = ['Workout'];
-  const mindset = ['Motivation', 'Discipline'];
-  const learning = ['Learning'];
-  if (health.includes(name)) return 'Health';
-  if (fitness.includes(name)) return 'Fitness';
-  if (mindset.includes(name)) return 'Mindset';
-  if (learning.includes(name)) return 'Learning';
-  return 'Custom';
 }
 
 export default function DailyEntry() {
@@ -40,6 +28,7 @@ export default function DailyEntry() {
   const [saved, setSaved] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [activeIds, setActiveIds] = useState<Set<number>>(new Set());
 
   const { data: categories = [], isLoading: catsLoading } = useQuery({
     queryKey: ['categories'],
@@ -54,22 +43,25 @@ export default function DailyEntry() {
   // Initialise sliders when categories or existing entry loads
   useEffect(() => {
     if (!categories.length) return;
-    const init: Record<number, number> = {};
+    const initScores: Record<number, number> = {};
+    const initActive = new Set<number>();
     for (const cat of categories) {
       const existing = existingEntry?.scores?.find((s) => s.category_id === cat.id);
-      init[cat.id] = existing?.score ?? 5;
+      initScores[cat.id] = existing?.score ?? 5;
+      // if editing existing entry: active only if score exists; new entry: all active by default
+      if (existingEntry ? existing !== undefined : true) initActive.add(cat.id);
     }
-    setScores(init);
+    setScores(initScores);
+    setActiveIds(initActive);
     setNotes(existingEntry?.notes ?? '');
     setSaved(false);
   }, [categories, existingEntry]);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: () => {
-      const scorePayload = Object.entries(scores).map(([id, score]) => ({
-        category_id: Number(id),
-        score,
-      }));
+      const scorePayload = Object.entries(scores)
+        .filter(([id]) => activeIds.has(Number(id)))
+        .map(([id, score]) => ({ category_id: Number(id), score }));
       if (existingEntry) {
         return updateEntry(existingEntry.id, { notes: notes || undefined, scores: scorePayload });
       }
@@ -87,10 +79,10 @@ export default function DailyEntry() {
 
   const isLoading = catsLoading || entryLoading;
   const sections = groupBySection(categories);
-  const overall =
-    Object.values(scores).length > 0
-      ? (Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length).toFixed(1)
-      : null;
+  const activeScores = Object.entries(scores).filter(([id]) => activeIds.has(Number(id))).map(([, v]) => v);
+  const overall = activeScores.length > 0
+    ? (activeScores.reduce((a, b) => a + b, 0) / activeScores.length).toFixed(1)
+    : null;
 
   const errorMsg = error
     ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Save failed'
@@ -138,7 +130,12 @@ export default function DailyEntry() {
                   key={cat.id}
                   label={cat.name}
                   value={scores[cat.id] ?? 5}
+                  active={activeIds.has(cat.id)}
                   onChange={(v) => { setScores((s) => ({ ...s, [cat.id]: v })); setSaved(false); }}
+                  onToggle={(on) => {
+                    setActiveIds((prev) => { const next = new Set(prev); on ? next.add(cat.id) : next.delete(cat.id); return next; });
+                    setSaved(false);
+                  }}
                 />
               ))}
             </div>

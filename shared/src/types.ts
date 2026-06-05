@@ -21,11 +21,23 @@ export interface User {
   created_at: string;
 }
 
+export const CATEGORY_GROUPS = ['Health', 'Fitness', 'Mindset', 'Learning', 'Productivity', 'Custom'] as const;
+export type CategoryGroup = typeof CATEGORY_GROUPS[number];
+
+export interface Group {
+  id: number;
+  user_id: number;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Category {
   id: number;
   user_id: number;
   name: string;
   is_default: boolean;
+  group_name: string | null;
   created_at: string;
 }
 
@@ -61,10 +73,12 @@ export interface UpdateEntryRequest {
 
 export interface CreateCategoryRequest {
   name: string;
+  group_name?: string | null;
 }
 
 export interface UpdateCategoryRequest {
   name: string;
+  group_name?: string | null;
 }
 
 export interface CreateGoalRequest {

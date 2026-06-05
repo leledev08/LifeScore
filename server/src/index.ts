@@ -6,6 +6,7 @@ import categoryRoutes from './routes/categories';
 import entryRoutes from './routes/entries';
 import analyticsRoutes from './routes/analytics';
 import goalRoutes from './routes/goals';
+import groupRoutes from './routes/groups';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +23,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/goals', goalRoutes);
+app.use('/api/groups', groupRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

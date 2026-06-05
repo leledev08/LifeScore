@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { fetchOverallAnalytics } from '../api/analytics';
 import { fetchGoals } from '../api/goals';
-import StatCard from '../components/StatCard';
-import ScoreBadge from '../components/ScoreBadge';
+import { fetchEntryByDate } from '../api/entries';
+import ScoreBadge, { scoreBarColor } from '../components/ScoreBadge';
+import RadarChart from '../components/charts/RadarChart';
 import type { Goal } from '@lifescore/shared';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -20,10 +22,17 @@ export default function Dashboard() {
     queryFn: fetchGoals,
   });
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [radarDate, setRadarDate] = useState(todayISO);
+
+  const { data: radarEntry } = useQuery({
+    queryKey: ['entry', radarDate],
+    queryFn: () => fetchEntryByDate(radarDate),
+  });
+
   if (isLoading) return <Skeleton />;
   if (error || !data) return <ErrorState />;
 
-  const today = data.daily_average;
   const trendData = data.trend.map((t) => ({
     date: t.date.slice(5),   // MM-DD
     score: Number(t.overall_score),
@@ -41,42 +50,59 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="col-span-2 md:col-span-1 lg:col-span-1">
-          <StatCard
-            label="Today"
-            value={today ? Number(today).toFixed(1) : '—'}
-            sub="overall score"
-            accent
+      {/* Daily Radar */}
+      <div className="bg-card border border-border rounded-lg p-5">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Daily Snapshot</h2>
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => { const d = new Date(radarDate + 'T12:00:00'); d.setDate(d.getDate() - 1); setRadarDate(d.toISOString().slice(0, 10)); }}
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors text-lg leading-none"
+          >‹</button>
+          <input
+            type="date"
+            value={radarDate}
+            max={todayISO}
+            onChange={(e) => setRadarDate(e.target.value)}
+            className="px-2 py-1 rounded border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
+          <button
+            onClick={() => { if (radarDate >= todayISO) return; const d = new Date(radarDate + 'T12:00:00'); d.setDate(d.getDate() + 1); setRadarDate(d.toISOString().slice(0, 10)); }}
+            disabled={radarDate >= todayISO}
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors text-lg leading-none disabled:opacity-30"
+          >›</button>
+          <span className="text-xs text-muted-foreground">
+            {new Date(radarDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </span>
         </div>
-        <StatCard
-          label="Weekly avg"
-          value={data.weekly_average ? Number(data.weekly_average).toFixed(1) : '—'}
-          sub="last 7 days"
-        />
-        <StatCard
-          label="Monthly avg"
-          value={data.monthly_average ? Number(data.monthly_average).toFixed(1) : '—'}
-          sub="last 30 days"
-        />
-        <StatCard
-          label="Streak"
-          value={data.current_streak}
-          sub={data.current_streak === 1 ? 'day' : 'days'}
-        />
-        <StatCard
-          label="Best category"
-          value={data.best_category?.category_name ?? '—'}
-          sub={data.best_category ? `avg ${Number(data.best_category.average).toFixed(1)}` : undefined}
-        />
-        <StatCard
-          label="Worst category"
-          value={data.worst_category?.category_name ?? '—'}
-          sub={data.worst_category ? `avg ${Number(data.worst_category.average).toFixed(1)}` : undefined}
-        />
+        {radarEntry?.scores?.length ? (
+          <RadarChart data={radarEntry.scores.map((s) => ({ category: s.category_name ?? '', score: s.score }))} />
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-8">No entry for this date. <Link to="/entry" className="text-primary hover:underline">Add one</Link></p>
+        )}
       </div>
+
+      {/* Category breakdown */}
+      {data.category_stats.length > 0 && (
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
+            Category Averages
+          </h2>
+          <div className="space-y-3">
+            {data.category_stats.map((cat) => (
+              <div key={cat.category_id} className="flex items-center gap-3">
+                <span className="w-28 text-sm text-foreground truncate">{cat.category_name}</span>
+                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${scoreBarColor(Number(cat.average))}`}
+                    style={{ width: `${(Number(cat.average) / 10) * 100}%` }}
+                  />
+                </div>
+                <ScoreBadge score={Number(cat.average)} size="sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 30-day trend chart */}
       {trendData.length > 0 && (
@@ -110,29 +136,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Category breakdown */}
-      {data.category_stats.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-5">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
-            Category Averages
-          </h2>
-          <div className="space-y-3">
-            {data.category_stats.map((cat) => (
-              <div key={cat.category_id} className="flex items-center gap-3">
-                <span className="w-28 text-sm text-foreground truncate">{cat.category_name}</span>
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${(Number(cat.average) / 10) * 100}%` }}
-                  />
-                </div>
-                <ScoreBadge score={Number(cat.average)} size="sm" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Goals progress */}
       {(goals as Goal[]).length > 0 && (
         <div className="bg-card border border-border rounded-lg p-5">
@@ -150,7 +153,7 @@ export default function Dashboard() {
                   <span className="w-28 text-sm text-foreground truncate">{goal.category_name}</span>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${met ? 'bg-green-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      className={`h-full rounded-full transition-all ${scoreBarColor(avg)}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>

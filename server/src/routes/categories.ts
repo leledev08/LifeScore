@@ -19,7 +19,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/', async (req: AuthRequest, res: Response) => {
-  const { name } = req.body as { name?: string };
+  const { name, group_name } = req.body as { name?: string; group_name?: string | null };
   if (!name?.trim()) {
     res.status(400).json({ error: 'Name required' });
     return;
@@ -33,8 +33,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const sort_order = existing.length;
 
     const { rows } = await pool.query(
-      'INSERT INTO categories (user_id, name, sort_order) VALUES ($1, $2, $3) RETURNING *',
-      [req.userId, name.trim(), sort_order]
+      'INSERT INTO categories (user_id, name, sort_order, group_name) VALUES ($1, $2, $3, $4) RETURNING *',
+      [req.userId, name.trim(), sort_order, group_name ?? null]
     );
     res.status(201).json({ data: rows[0] });
   } catch (err: unknown) {
@@ -49,7 +49,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const { name } = req.body as { name?: string };
+  const { name, group_name } = req.body as { name?: string; group_name?: string | null };
   if (!name?.trim()) {
     res.status(400).json({ error: 'Name required' });
     return;
@@ -57,8 +57,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
   try {
     const { rows } = await pool.query(
-      'UPDATE categories SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-      [name.trim(), id, req.userId]
+      'UPDATE categories SET name = $1, group_name = $2 WHERE id = $3 AND user_id = $4 RETURNING *',
+      [name.trim(), group_name ?? null, id, req.userId]
     );
     if (rows.length === 0) {
       res.status(404).json({ error: 'Category not found' });
@@ -90,6 +90,34 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/categories/reorder  — batch update sort_order + group_name
+router.patch('/reorder', async (req: AuthRequest, res: Response) => {
+  const items = req.body as { id: number; sort_order: number; group_name: string | null }[];
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: 'items array required' });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const item of items) {
+      await client.query(
+        'UPDATE categories SET sort_order = $1, group_name = $2 WHERE id = $3 AND user_id = $4',
+        [item.sort_order, item.group_name, item.id, req.userId]
+      );
+    }
+    await client.query('COMMIT');
+    res.status(204).send();
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 });
 

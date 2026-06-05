@@ -2,13 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchGoals, createGoal, deleteGoal } from '../api/goals';
 import { fetchCategories } from '../api/categories';
+import { scoreBarColor } from '../components/ScoreBadge';
 import type { Goal } from '@lifescore/shared';
-
-function progressColor(pct: number) {
-  if (pct >= 100) return 'bg-green-500';
-  if (pct >= 70)  return 'bg-yellow-500';
-  return 'bg-red-500';
-}
 
 export default function Goals() {
   const [selectedCat, setSelectedCat] = useState('');
@@ -133,7 +128,7 @@ export default function Goals() {
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${progressColor(pct)}`}
+                          className={`h-full rounded-full transition-all ${scoreBarColor(avg !== null ? (avg / goal.target_score) * 10 : null)}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>

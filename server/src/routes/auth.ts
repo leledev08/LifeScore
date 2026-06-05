@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import pool from '../db/pool';
-import { seedDefaultCategories } from '../db/seed';
+import { seedDefaultCategories, seedDefaultGroups } from '../db/seed';
 
 const router = Router();
 
@@ -39,6 +39,7 @@ router.post('/register', async (req: Request, res: Response) => {
     );
     const user = rows[0];
 
+    await seedDefaultGroups(user.id, client);
     await seedDefaultCategories(user.id, client);
 
     await client.query('COMMIT');

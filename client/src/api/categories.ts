@@ -19,3 +19,9 @@ export async function updateCategory(id: number, data: UpdateCategoryRequest): P
 export async function deleteCategory(id: number): Promise<void> {
   await api.delete(`/categories/${id}`);
 }
+
+export async function reorderCategories(
+  items: { id: number; sort_order: number; group_name: string | null }[]
+): Promise<void> {
+  await api.patch('/categories/reorder', items);
+}

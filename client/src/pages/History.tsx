@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { fetchEntries } from '../api/entries';
 import { fetchCategories } from '../api/categories';
 import type { DailyEntry } from '@lifescore/shared';
-import ScoreBadge from '../components/ScoreBadge';
+import ScoreBadge, { scoreBgColor } from '../components/ScoreBadge';
 
 type View = 'list' | 'calendar';
 
@@ -23,10 +23,7 @@ function overallScore(entry: DailyEntry): number | null {
   return Math.round((sum / entry.scores.length) * 10) / 10;
 }
 function heatColor(score: number | null) {
-  if (score === null) return 'bg-muted text-muted-foreground';
-  if (score >= 8) return 'bg-green-500/20 text-green-400 border-green-500/30';
-  if (score >= 6) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-  return 'bg-red-500/20 text-red-400 border-red-500/30';
+  return scoreBgColor(score);
 }
 
 export default function History() {
@@ -243,7 +240,7 @@ function CalendarView({
 
       {/* Legend */}
       <div className="flex gap-4 mt-4 justify-end">
-        {[['≥8', 'bg-green-500/20 border-green-500/30'], ['≥6', 'bg-yellow-500/20 border-yellow-500/30'], ['<6', 'bg-red-500/20 border-red-500/30']].map(([label, cls]) => (
+        {[['≥8', scoreBgColor(8)], ['≥6', scoreBgColor(6)], ['≥4', scoreBgColor(4)], ['<4', scoreBgColor(1)]].map(([label, cls]) => (
           <div key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <div className={`w-3 h-3 rounded border ${cls}`} />
             {label}

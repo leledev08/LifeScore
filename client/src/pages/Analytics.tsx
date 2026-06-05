@@ -89,7 +89,7 @@ export default function Analytics() {
       )}
 
       {/* Radar chart */}
-      <Section title="Daily Snapshot (Radar)">
+      <Section title="Daily Snapshot">
         <div className="flex items-center gap-3 mb-4">
           <button
             onClick={() => {
