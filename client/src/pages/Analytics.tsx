@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOverallAnalytics, fetchCategoryAnalytics, fetchHeatmap, fetchComparison } from '../api/analytics';
 import { fetchCategories } from '../api/categories';
 import { fetchEntryByDate } from '../api/entries';
+import { PieChart, Pie, Cell } from 'recharts';
 import TrendChart from '../components/charts/TrendChart';
 import ComparisonChart from '../components/charts/ComparisonChart';
 import RadarChart from '../components/charts/RadarChart';
@@ -13,11 +14,12 @@ const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 const COLORS = ['#a78bfa','#34d399','#fbbf24','#f87171','#60a5fa','#fb923c','#e879f9','#2dd4bf'];
 
 export default function Analytics() {
-  const [days, setDays] = useState(30);
+  const [days] = useState(30);
   const [heatYear, setHeatYear] = useState(new Date().getFullYear());
   const [compIds, setCompIds] = useState<number[]>([]);
   const [compDays, setCompDays] = useState(30);
   const [radarDate, setRadarDate] = useState(new Date().toISOString().slice(0, 10));
+  const [trendDays, setTrendDays] = useState(30);
 
   const { data: overall, isLoading: overallLoading } = useQuery({
     queryKey: ['analytics', 'overall', days],
@@ -58,25 +60,7 @@ export default function Analytics() {
 
   return (
     <div className="max-w-5xl space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Period:</span>
-          <div className="flex gap-1">
-            {DAYS_OPTIONS.map((d) => (
-              <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  days === d ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
 
       {/* Summary stats */}
       {overall && (
@@ -130,10 +114,17 @@ export default function Analytics() {
 
       {/* Overall trend */}
       <Section title="Overall Score Trend">
+        <div className="flex justify-end mb-3">
+          <select value={trendDays} onChange={(e) => setTrendDays(Number(e.target.value))}
+            className="px-2 py-1 rounded border border-input bg-background text-foreground text-xs focus:outline-none">
+            {DAYS_OPTIONS.map((d) => <option key={d} value={d}>{d} days</option>)}
+          </select>
+        </div>
         {overallLoading ? <ChartSkeleton /> : overall?.trend.length ? (
           <TrendChart
             data={overall.trend.map((t) => ({ date: t.date, score: Number(t.overall_score) }))}
             height={220}
+            pastDays={trendDays}
           />
         ) : <Empty />}
       </Section>
@@ -168,16 +159,14 @@ export default function Analytics() {
         ) : compData.length === 0 ? (
           <Empty />
         ) : (
-          <ComparisonChart data={compData} categoryIds={compIds} />
+          <ComparisonChart data={compData} categoryIds={compIds} pastDays={compDays} />
         )}
       </Section>
 
       {/* Per-category charts */}
       {categories.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
-            Category Trends
-          </h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Category Trends</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {categories.map((cat, i) => (
               <CategoryChart key={cat.id} categoryId={cat.id} name={cat.name} days={days} color={COLORS[i % COLORS.length]} />
@@ -211,27 +200,50 @@ function CategoryChart({ categoryId, name, days, color }: { categoryId: number; 
     queryFn: () => fetchCategoryAnalytics(categoryId, days),
   });
 
+  const avg = data?.stats ? Number(data.stats.average) : null;
+  const pct = avg !== null ? Math.round((avg / 10) * 100) : 0;
+
   return (
     <div className="bg-card border border-border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-medium text-foreground">{name}</h3>
-        {data?.stats && (
-          <span className="text-xs text-muted-foreground">
-            avg <span className="text-foreground font-medium">{Number(data.stats.average).toFixed(1)}</span>
-            {' · '}↑{data.stats.highest} ↓{data.stats.lowest}
-          </span>
-        )}
-      </div>
+      <h3 className="text-sm font-semibold text-foreground mb-3">{name}</h3>
       {isLoading ? (
-        <div className="h-[180px] bg-muted rounded animate-pulse" />
-      ) : data?.trend.length ? (
-        <TrendChart
-          data={data.trend.map((t) => ({ date: t.date, score: t.score }))}
-          color={color}
-          height={180}
-        />
+        <div className="h-[160px] bg-muted rounded animate-pulse" />
       ) : (
-        <div className="h-[180px] flex items-center justify-center text-xs text-muted-foreground">No data</div>
+        <div className="flex gap-4 items-center">
+          {/* Donut */}
+          <div className="shrink-0 flex flex-col items-center">
+            <PieChart width={100} height={100}>
+              <Pie
+                data={[{ value: avg ?? 0 }, { value: 10 - (avg ?? 0) }]}
+                cx={50} cy={50}
+                innerRadius={32} outerRadius={46}
+                startAngle={90} endAngle={-270}
+                dataKey="value" strokeWidth={0}
+              >
+                <Cell fill={color} />
+                <Cell fill="hsl(var(--muted))" />
+              </Pie>
+            </PieChart>
+            <p className="text-lg font-bold text-foreground -mt-6">{avg !== null ? avg.toFixed(1) : '—'}</p>
+            <p className="text-xs text-muted-foreground mt-1">{avg !== null ? `${pct}%` : ''}</p>
+            {data?.stats && (
+              <p className="text-xs text-muted-foreground">↑{data.stats.highest} ↓{data.stats.lowest}</p>
+            )}
+          </div>
+          {/* Trend */}
+          <div className="flex-1 min-w-0">
+            {data?.trend.length ? (
+              <TrendChart
+                data={data.trend.map((t) => ({ date: t.date, score: t.score }))}
+                color={color}
+                height={130}
+                pastDays={days}
+              />
+            ) : (
+              <div className="h-[130px] flex items-center justify-center text-xs text-muted-foreground">No data</div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

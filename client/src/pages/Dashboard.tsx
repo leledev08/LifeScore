@@ -6,15 +6,17 @@ import { fetchGoals } from '../api/goals';
 import { fetchEntryByDate } from '../api/entries';
 import ScoreBadge, { scoreBarColor } from '../components/ScoreBadge';
 import RadarChart from '../components/charts/RadarChart';
+import TrendChart from '../components/charts/TrendChart';
 import type { Goal } from '@lifescore/shared';
-import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from 'recharts';
+
+const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 
 export default function Dashboard() {
+  const [trendDays, setTrendDays] = useState(30);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['analytics', 'overall', 30],
-    queryFn: () => fetchOverallAnalytics(30),
+    queryKey: ['analytics', 'overall', trendDays],
+    queryFn: () => fetchOverallAnalytics(trendDays),
   });
 
   const { data: goals = [] } = useQuery({
@@ -34,7 +36,7 @@ export default function Dashboard() {
   if (error || !data) return <ErrorState />;
 
   const trendData = data.trend.map((t) => ({
-    date: t.date.slice(5),   // MM-DD
+    date: t.date.slice(0, 10),
     score: Number(t.overall_score),
   }));
 
@@ -104,37 +106,21 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 30-day trend chart */}
-      {trendData.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-5">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
-            30-Day Score Trend
-          </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip
-                contentStyle={{
-                  background: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px',
-                  fontSize: 12,
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* Overall trend */}
+      <div className="bg-card border border-border rounded-lg p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Overall Score Trend</h2>
+          <select value={trendDays} onChange={(e) => setTrendDays(Number(e.target.value))}
+            className="px-2 py-1 rounded border border-input bg-background text-foreground text-xs focus:outline-none">
+            {DAYS_OPTIONS.map((d) => <option key={d} value={d}>{d} days</option>)}
+          </select>
         </div>
-      )}
+        <TrendChart
+          data={trendData}
+          height={220}
+          pastDays={trendDays}
+        />
+      </div>
 
       {/* Goals progress */}
       {(goals as Goal[]).length > 0 && (
